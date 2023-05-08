@@ -1,23 +1,27 @@
 # Evo - JS parser combinators
 
-Naive implementation of some parsers and combinators. It works, but can be confusing and needs better parsing error handling.
+Parser combinator from scratch. It does not depends on any external library.
 
 ## Examples
 
+See the implementation of the examples to see the parsers being used.
+
 ### Addition
 
-TODO
+```javascript
+const { eval } = require('./examples/math-expr');
 
-### JSON
+let res = eval('-((2+8)^3-250)/3');
+
+console.log(res === -250);
+```
+
+### JSON (It does not support whitespaces between keys and values)
 
 ```javascript
-const res = json(`
-    {
-        "string": "lettersss",
-        "number": 10,
-        "null": null
-    }
-`);
+const { parseJson } = require('./examples/json');
+
+const res = parseJson(`{"string":"lettersss","number":10,"null":null}`);
 
 const expected = {
   string: 'lettersss',
@@ -25,44 +29,17 @@ const expected = {
   null: null,
 };
 
-assert(
-  res[0].string === expected.string &&
-    res[0].number === expected.number &&
-    res[0].null === expected.null
+console.log(
+  res.string === expected.string &&
+    res.number === expected.number &&
+    res.null === expected.null
 );
 ```
 
-## Parser Builders
-
-Used to build simple parsers.
-
-- char
-- notChar
-- literal
-
-## Parsers
-
-Receives a string as input and returns either a pair with the parsed value and the remaining input or a string informing an error.
-
-- digit
-- integer
-- lowerLetter
-- upperLetter
-- letter
-- word
-- whitespace
-
-## Combinators
-
-Receives one or more parsers and combine or modify their results.
-
-- choice
-- seq
-- map
-- many
-- many1
-- skip
-
 ## Quick start
 
-It requires no dependency, you can just run it with Node.
+You can just run the project with Node to see the examples results.
+
+```
+node src/index.js
+```

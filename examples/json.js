@@ -1,46 +1,63 @@
-const { seq, skip, many, map, many1, choice } = require('../lib/combinator');
-const { whitespace, integer } = require('../lib/parser');
-const { char, literal, notChar } = require('../lib/builder');
+const { Parser: P } = require('../src/parser');
 
-const anythingExceptDQuotes = map(
-  (r) => r.reduce((acc, r) => acc + r),
-  many1(notChar('"'))
+const json = P.lazy(() =>
+  P.choice(jsonNull, jsonNumber, jsonBool, jsonString, jsonArray, jsonObject)
 );
 
-const dQuotedString = map(
-  (r) => r[0],
-  seq(skip(char('"')), anythingExceptDQuotes, skip(char('"')))
+const jsonNull = P.literal('null').map(() => null);
+
+const jsonNumber = P.number();
+
+const jsonBool = P.choice(P.literal('false'), P.literal('true')).map(
+  (result) => result === 'true'
 );
 
-const jsonKey = dQuotedString;
-
-const jsonStringValue = dQuotedString;
-
-const jsonNumberValue = integer;
-
-const jsonNullValeu = map((_) => null, literal('null'));
-
-const jsonValue = choice(jsonStringValue, jsonNumberValue, jsonNullValeu);
-
-const jsonPair = map(
-  (r) => ({ [r[0]]: r[1] }),
-  seq(jsonKey, skip(char(':')), skip(many(whitespace)), jsonValue)
-);
-
-const json = map(
-  (r) => [...r[0], r[1]].reduce((acc, r) => ({ ...acc, ...r }), {}),
-  seq(
-    skip(many(whitespace)),
-    skip(char('{')),
-    skip(many(whitespace)),
-    many(
-      map((r) => r[0], seq(jsonPair, skip(char(',')), skip(many(whitespace))))
-    ),
-    jsonPair,
-    skip(many(whitespace)),
-    skip(char('}')),
-    skip(many(whitespace))
+const jsonString = P.right(
+  P.char('"'),
+  P.left(
+    P.notChar('"')
+      .many()
+      .map((results) => results.join('')),
+    P.char('"')
   )
 );
 
-module.exports = { json };
+const emptyArray = P.literal('[]').map(() => []);
+
+const commaSepValues = P.sequence(json, P.right(P.char(','), json).many()).map(
+  ([first, rest]) => [first].concat(rest)
+);
+
+const filledArray = P.right(P.char('['), P.left(commaSepValues, P.char(']')));
+
+const jsonArray = P.choice(emptyArray, filledArray);
+
+const emptyObject = P.literal('{}').map(() => ({}));
+
+const keyValuePair = P.sequence(P.left(jsonString, P.char(':')), json).map(
+  ([key, value]) => ({ [key]: value })
+);
+
+const keyValuePairs = P.sequence(
+  keyValuePair,
+  P.right(P.char(','), keyValuePair).many()
+).map(([first, rest]) =>
+  rest.reduce((acc, cur) => ({ ...acc, ...cur }), first)
+);
+
+const filledObject = P.right(P.char('{'), P.left(keyValuePairs, P.char('}')));
+
+const jsonObject = P.choice(emptyObject, filledObject);
+
+function parseJson(input) {
+  const result = json.run(input);
+  if (result) {
+    const [parsed, remaining] = result;
+    if (remaining.length > 0)
+      return `could not parse remaining text: '${remaining}'`;
+    return parsed;
+  }
+  return `could not parse input: '${input}'`;
+}
+
+module.exports = { parseJson };
